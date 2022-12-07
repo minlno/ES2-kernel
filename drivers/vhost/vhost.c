@@ -363,16 +363,20 @@ static int vhost_worker_tx_polling(void *data)
 		}
 
 		//mhkim
-		mutex_lock(&dev->mutex);
+		//mutex_lock(&dev->mutex);
 		if (dev->is_poll) {
 			if (dev->poll_count > 1000) {
 				dev->is_poll = false;
 				dev->poll_count = 0;
-				mutex_unlock(&dev->mutex);
+
+				mutex_lock_nested(&tx_vq->mutex, 1);
+				vhost_enable_notify(dev, tx_vq);
+				mutex_unlock(&tx_vq->mutex);
+				//mutex_unlock(&dev->mutex);
 				continue;
 			}
 
-			mutex_lock(&tx_vq->mutex);
+			mutex_lock_nested(&tx_vq->mutex, 1);
 			vhost_disable_notify(dev, tx_vq);
 			mutex_unlock(&tx_vq->mutex);
 
@@ -380,12 +384,8 @@ static int vhost_worker_tx_polling(void *data)
 				llist_add(&tx_work->node, &dev->work_list);
 
 			dev->poll_count += 1;
-		} else {
-			mutex_lock(&tx_vq->mutex);
-			vhost_enable_notify(dev, tx_vq);
-			mutex_unlock(&tx_vq->mutex);
 		}
-		mutex_unlock(&dev->mutex);
+		//mutex_unlock(&dev->mutex);
 
 		node = llist_del_all(&dev->work_list);
 		if (!node)

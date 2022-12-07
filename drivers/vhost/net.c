@@ -970,9 +970,7 @@ static void handle_tx(struct vhost_net *net)
 	if (!vq_meta_prefetch(vq))
 		goto out;
 
-	//mhkim
-	if (!net->dev.is_poll)
-		vhost_disable_notify(&net->dev, vq);
+	vhost_disable_notify(&net->dev, vq);
 	vhost_net_disable_vq(net, vq);
 
 	if (vhost_sock_zcopy(sock))
@@ -1281,10 +1279,10 @@ static void handle_rx_net(struct vhost_work *work)
 	struct vhost_net *net = container_of(work, struct vhost_net,
 					     poll[VHOST_NET_VQ_RX].work);
 	//mhkim
-	mutex_lock(&net->dev.mutex);
+	//mutex_lock(&net->dev.mutex);
 	net->dev.is_poll = true;
 	net->dev.poll_count = 0;
-	mutex_unlock(&net->dev.mutex);
+	//mutex_unlock(&net->dev.mutex);
 	handle_rx(net);
 }
 
@@ -1346,6 +1344,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
 		       NULL);
 	//mhkim
 	dev->is_net = true;
+	dev->is_poll = true;
 
 	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, EPOLLOUT, dev);
 	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, EPOLLIN, dev);
