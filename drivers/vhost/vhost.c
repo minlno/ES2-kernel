@@ -353,11 +353,6 @@ static int vhost_worker_tx_polling(void *data)
 
 	kthread_use_mm(dev->mm);
 
-	//mhkim
-	mutex_lock_nested(&tx_vq->mutex, 1);
-	vhost_disable_notify(dev, tx_vq);
-	mutex_unlock(&tx_vq->mutex);
-
 	for (;;) {
 		/* mb paired w/ kthread_stop */
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -368,8 +363,28 @@ static int vhost_worker_tx_polling(void *data)
 		}
 
 		//mhkim
-		if (!test_and_set_bit(VHOST_WORK_QUEUED, &tx_work->flags))
-			llist_add(&tx_work->node, &dev->work_list);
+		mutex_lock(&dev->mutex);
+		if (dev->is_poll) {
+			if (dev->poll_count > 1000) {
+				dev->is_poll = false;
+				dev->poll_count = 0;
+				continue;
+			}
+
+			mutex_lock(&tx_vq->mutex);
+			vhost_disable_notify(dev, tx_vq);
+			mutex_unlock(&tx_vq->mutex);
+
+			if (!test_and_set_bit(VHOST_WORK_QUEUED, &tx_work->flags))
+				llist_add(&tx_work->node, &dev->work_list);
+
+			dev->poll_count += 1;
+		} else {
+			mutex_lock(&tx_vq->mutex);
+			vhost_enable_notify(dev, tx_vq);
+			mutex_unlock(&tx_vq->mutex);
+		}
+		mutex_unlock(&dev->mutex);
 
 		node = llist_del_all(&dev->work_list);
 		if (!node)
@@ -544,6 +559,8 @@ void vhost_dev_init(struct vhost_dev *dev,
 	INIT_LIST_HEAD(&dev->pending_list);
 	spin_lock_init(&dev->iotlb_lock);
 	dev->is_net = false;
+	dev->is_poll = false;
+	dev->poll_count = 0;
 
 
 	for (i = 0; i < dev->nvqs; ++i) {
@@ -647,6 +664,7 @@ long vhost_dev_set_owner(struct vhost_dev *dev)
 
 	dev->kcov_handle = kcov_common_handle();
 	if (dev->use_worker) {
+		//mhkim
 		if (dev->is_net)
 			worker = kthread_create(vhost_worker_tx_polling, dev,
 						"vhost-tx-poll-%d", current->pid);

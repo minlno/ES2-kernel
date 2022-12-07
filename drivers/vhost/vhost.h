@@ -164,7 +164,10 @@ struct vhost_dev {
 	bool use_worker;
 	int (*msg_handler)(struct vhost_dev *dev,
 			   struct vhost_iotlb_msg *msg);
+	//mhkim
 	bool is_net;
+	bool is_poll;
+	int poll_count;
 };
 
 bool vhost_exceeds_weight(struct vhost_virtqueue *vq, int pkts, int total_len);

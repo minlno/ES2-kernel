@@ -791,15 +791,15 @@ static void handle_tx_copy(struct vhost_net *net, struct socket *sock)
 			break;
 		/* Nothing new?  Wait for eventfd to tell us they refilled. */
 		if (head == vq->num) {
-			/*
-			if (unlikely(busyloop_intr)) {
-				vhost_poll_queue(&vq->poll);
-			} else if (unlikely(vhost_enable_notify(&net->dev,
+			if (!net->dev.is_poll) {
+				if (unlikely(busyloop_intr)) {
+					vhost_poll_queue(&vq->poll);
+				} else if (unlikely(vhost_enable_notify(&net->dev,
 								vq))) {
-				vhost_disable_notify(&net->dev, vq);
-				continue;
+					vhost_disable_notify(&net->dev, vq);
+					continue;
+				}
 			}
-			*/
 			break;
 		}
 
@@ -971,7 +971,8 @@ static void handle_tx(struct vhost_net *net)
 		goto out;
 
 	//mhkim
-	//vhost_disable_notify(&net->dev, vq);
+	if (!net->dev.is_poll)
+		vhost_disable_notify(&net->dev, vq);
 	vhost_net_disable_vq(net, vq);
 
 	if (vhost_sock_zcopy(sock))
@@ -1279,6 +1280,11 @@ static void handle_rx_net(struct vhost_work *work)
 {
 	struct vhost_net *net = container_of(work, struct vhost_net,
 					     poll[VHOST_NET_VQ_RX].work);
+	//mhkim
+	mutex_lock(&net->dev.mutex);
+	net->dev.is_poll = true;
+	net->dev.poll_count = 0;
+	mutex_unlock(&net->dev.mutex);
 	handle_rx(net);
 }
 
@@ -1338,6 +1344,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
 		       UIO_MAXIOV + VHOST_NET_BATCH,
 		       VHOST_NET_PKT_WEIGHT, VHOST_NET_WEIGHT, true,
 		       NULL);
+	//mhkim
 	dev->is_net = true;
 
 	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, EPOLLOUT, dev);
