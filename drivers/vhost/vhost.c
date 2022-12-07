@@ -368,6 +368,7 @@ static int vhost_worker_tx_polling(void *data)
 			if (dev->poll_count > 1000) {
 				dev->is_poll = false;
 				dev->poll_count = 0;
+				mutex_unlock(&dev->mutex);
 				continue;
 			}
 
