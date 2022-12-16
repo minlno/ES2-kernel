@@ -160,6 +160,22 @@ int kvm_arch_set_irq_inatomic(struct kvm_kernel_irq_routing_entry *e,
 	struct kvm_lapic_irq irq;
 	int r;
 
+	//mhkim
+	struct kvm_vcpu *vcpu;
+	mutex_lock(&kvm->lock);
+	printk("online vcpus: ");
+	list_for_each_entry(vcpu, &kvm->online_vcpu_list, sched_stat_list) {
+		printk("%d ", vcpu->vcpu_id);		
+	}
+	printk("\n");
+
+	printk("offline vcpus: ");
+	list_for_each_entry(vcpu, &kvm->offline_vcpu_list, sched_stat_list) {
+		printk("%d ", vcpu->vcpu_id);		
+	}
+	printk("\n");
+	mutex_unlock(&kvm->lock);
+
 	switch (e->type) {
 	case KVM_IRQ_ROUTING_HV_SINT:
 		return kvm_hv_set_sint(e, kvm, irq_source_id, level,

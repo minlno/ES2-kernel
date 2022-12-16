@@ -297,6 +297,9 @@ struct kvm_vcpu {
 	int pre_pcpu;
 	struct list_head blocked_vcpu_list;
 
+	//mhkim
+	struct list_head sched_stat_list;
+
 	struct mutex mutex;
 	struct kvm_run *run;
 
@@ -526,6 +529,10 @@ struct kvm {
 	struct mm_struct *mm; /* userspace tied to this vm */
 	struct kvm_memslots __rcu *memslots[KVM_ADDRESS_SPACE_NUM];
 	struct kvm_vcpu *vcpus[KVM_MAX_VCPUS];
+
+	//mhkim
+	struct list_head online_vcpu_list;
+	struct list_head offline_vcpu_list;
 
 	/*
 	 * created_vcpus is protected by kvm->lock, and is incremented
