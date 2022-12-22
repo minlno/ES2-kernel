@@ -25,6 +25,25 @@
 #include "hyperv.h"
 #include "x86.h"
 
+static int msi_redirect = 0;
+module_param(msi_redirect, int, 0660);
+
+static int msi_dest_id = 0;
+module_param(msi_dest_id, int, 0660);
+
+static int org_dest_id = 0;
+module_param(org_dest_id, int, 0660);
+
+static int org_rx_vector = 0;
+module_param(org_rx_vector, int, 0660);
+static int org_tx_vector = 0;
+module_param(org_tx_vector, int, 0660);
+
+static int changed_rx_vector = 0;
+module_param(changed_rx_vector, int, 0660);
+static int changed_tx_vector = 0;
+module_param(changed_tx_vector, int, 0660);
+
 static int kvm_set_pic_irq(struct kvm_kernel_irq_routing_entry *e,
 			   struct kvm *kvm, int irq_source_id, int level,
 			   bool line_status)
@@ -161,6 +180,7 @@ int kvm_arch_set_irq_inatomic(struct kvm_kernel_irq_routing_entry *e,
 	int r;
 
 	//mhkim
+	/*
 	struct kvm_vcpu *vcpu;
 	mutex_lock(&kvm->lock);
 	printk("online vcpus: ");
@@ -175,6 +195,7 @@ int kvm_arch_set_irq_inatomic(struct kvm_kernel_irq_routing_entry *e,
 	}
 	printk("\n");
 	mutex_unlock(&kvm->lock);
+	*/
 
 	switch (e->type) {
 	case KVM_IRQ_ROUTING_HV_SINT:
@@ -186,6 +207,18 @@ int kvm_arch_set_irq_inatomic(struct kvm_kernel_irq_routing_entry *e,
 			return -EINVAL;
 
 		kvm_set_msi_irq(kvm, e, &irq);
+	
+		//mhkim
+		if (msi_redirect) {
+			if (irq.dest_id == org_dest_id && irq.vector == org_rx_vector) {
+				irq.dest_id = msi_dest_id;
+				irq.vector = changed_rx_vector;
+			}
+			else if (irq.dest_id == org_dest_id && irq.vector == org_tx_vector) {
+				irq.dest_id = msi_dest_id;
+				irq.vector = changed_tx_vector;
+			}
+		}
 
 		if (kvm_irq_delivery_to_apic_fast(kvm, NULL, &irq, &r, NULL))
 			return r;

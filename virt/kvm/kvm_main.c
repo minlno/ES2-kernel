@@ -5034,13 +5034,15 @@ struct kvm_vcpu *preempt_notifier_to_vcpu(struct preempt_notifier *pn)
 static void kvm_sched_in(struct preempt_notifier *pn, int cpu)
 {
 	struct kvm_vcpu *vcpu = preempt_notifier_to_vcpu(pn);
-	struct kvm *kvm = vcpu->kvm;
 	
 	//mhkim
+	/*
+	struct kvm *kvm = vcpu->kvm;
 	mutex_lock(&kvm->lock);
 	list_del(&vcpu->sched_stat_list);
 	list_add(&vcpu->sched_stat_list, &kvm->online_vcpu_list);
 	mutex_unlock(&kvm->lock);
+	*/
 
 	WRITE_ONCE(vcpu->preempted, false);
 	WRITE_ONCE(vcpu->ready, false);
@@ -5054,13 +5056,15 @@ static void kvm_sched_out(struct preempt_notifier *pn,
 			  struct task_struct *next)
 {
 	struct kvm_vcpu *vcpu = preempt_notifier_to_vcpu(pn);
-	struct kvm *kvm = vcpu->kvm;
 
 	//mhkim
+	/*
+	struct kvm *kvm = vcpu->kvm;
 	mutex_lock(&kvm->lock);
 	list_del(&vcpu->sched_stat_list);
 	list_add(&vcpu->sched_stat_list, &kvm->offline_vcpu_list);
 	mutex_unlock(&kvm->lock);
+	*/
 
 	if (current->state == TASK_RUNNING) {
 		WRITE_ONCE(vcpu->preempted, true);
