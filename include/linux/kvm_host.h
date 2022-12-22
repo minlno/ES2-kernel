@@ -531,6 +531,7 @@ struct kvm {
 	struct kvm_vcpu *vcpus[KVM_MAX_VCPUS];
 
 	//mhkim
+	struct mutex mh_lock;
 	struct list_head online_vcpu_list;
 	struct list_head offline_vcpu_list;
 

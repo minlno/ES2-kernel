@@ -912,6 +912,7 @@ static struct kvm *kvm_create_vm(unsigned long type)
 	mutex_init(&kvm->lock);
 	mutex_init(&kvm->irq_lock);
 	mutex_init(&kvm->slots_lock);
+	mutex_init(&kvm->mh_lock);
 	INIT_LIST_HEAD(&kvm->devices);
 	INIT_LIST_HEAD(&kvm->online_vcpu_list);
 	INIT_LIST_HEAD(&kvm->offline_vcpu_list);
@@ -3399,12 +3400,15 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 	smp_wmb();
 	atomic_inc(&kvm->online_vcpus);
 
-	//mhkim
-	list_add(&vcpu->sched_stat_list, &kvm->offline_vcpu_list);
-
 	mutex_unlock(&kvm->lock);
 	kvm_arch_vcpu_postcreate(vcpu);
 	kvm_create_vcpu_debugfs(vcpu);
+
+	//mhkim
+	mutex_lock(&kvm->mh_lock);
+	list_add(&vcpu->sched_stat_list, &kvm->offline_vcpu_list);
+	mutex_unlock(&kvm->mh_lock);
+
 	return r;
 
 unlock_vcpu_destroy:
@@ -5036,13 +5040,11 @@ static void kvm_sched_in(struct preempt_notifier *pn, int cpu)
 	struct kvm_vcpu *vcpu = preempt_notifier_to_vcpu(pn);
 	
 	//mhkim
-	/*
 	struct kvm *kvm = vcpu->kvm;
-	mutex_lock(&kvm->lock);
+	mutex_lock(&kvm->mh_lock);
 	list_del(&vcpu->sched_stat_list);
 	list_add(&vcpu->sched_stat_list, &kvm->online_vcpu_list);
-	mutex_unlock(&kvm->lock);
-	*/
+	mutex_unlock(&kvm->mh_lock);
 
 	WRITE_ONCE(vcpu->preempted, false);
 	WRITE_ONCE(vcpu->ready, false);
@@ -5058,13 +5060,11 @@ static void kvm_sched_out(struct preempt_notifier *pn,
 	struct kvm_vcpu *vcpu = preempt_notifier_to_vcpu(pn);
 
 	//mhkim
-	/*
 	struct kvm *kvm = vcpu->kvm;
-	mutex_lock(&kvm->lock);
+	mutex_lock(&kvm->mh_lock);
 	list_del(&vcpu->sched_stat_list);
 	list_add(&vcpu->sched_stat_list, &kvm->offline_vcpu_list);
-	mutex_unlock(&kvm->lock);
-	*/
+	mutex_unlock(&kvm->mh_lock);
 
 	if (current->state == TASK_RUNNING) {
 		WRITE_ONCE(vcpu->preempted, true);
