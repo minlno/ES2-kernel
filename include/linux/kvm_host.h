@@ -299,6 +299,7 @@ struct kvm_vcpu {
 
 	//mhkim
 	struct list_head sched_stat_list;
+	unsigned long irq_num;
 
 	struct mutex mutex;
 	struct kvm_run *run;
@@ -534,6 +535,7 @@ struct kvm {
 	struct mutex mh_lock;
 	struct list_head online_vcpu_list;
 	struct list_head offline_vcpu_list;
+	int last_vcpu;
 
 	/*
 	 * created_vcpus is protected by kvm->lock, and is incremented

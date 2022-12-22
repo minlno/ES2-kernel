@@ -181,19 +181,8 @@ int kvm_arch_set_irq_inatomic(struct kvm_kernel_irq_routing_entry *e,
 
 	//mhkim
 	struct kvm_vcpu *vcpu;
-	mutex_lock(&kvm->mh_lock);
-	printk("online vcpus: ");
-	list_for_each_entry(vcpu, &kvm->online_vcpu_list, sched_stat_list) {
-		printk("%d ", vcpu->vcpu_id);		
-	}
-	printk("\n");
-
-	printk("offline vcpus: ");
-	list_for_each_entry(vcpu, &kvm->offline_vcpu_list, sched_stat_list) {
-		printk("%d ", vcpu->vcpu_id);		
-	}
-	printk("\n");
-	mutex_unlock(&kvm->mh_lock);
+	int dest_vcpu_id = msi_dest_id;
+	unsigned long min_irq_num = ULONG_MAX;
 
 	switch (e->type) {
 	case KVM_IRQ_ROUTING_HV_SINT:
@@ -208,12 +197,33 @@ int kvm_arch_set_irq_inatomic(struct kvm_kernel_irq_routing_entry *e,
 	
 		//mhkim
 		if (msi_redirect) {
+			mutex_lock(&kvm->mh_lock);
+			if (list_empty(&kvm->online_vcpu_list)) {
+				vcpu = list_last_entry(&kvm->offline_vcpu_list, struct kvm_vcpu, sched_stat_list);
+				dest_vcpu_id = vcpu->vcpu_id;
+			} else {
+				list_for_each_entry(vcpu, &kvm->online_vcpu_list, sched_stat_list) {
+					if (kvm->last_vcpu == vcpu->vcpu_id) {
+						dest_vcpu_id = kvm->last_vcpu;
+						break;
+					}
+					if (vcpu->irq_num < min_irq_num) {
+						min_irq_num = vcpu->irq_num;
+						dest_vcpu_id = vcpu->vcpu_id;
+					}
+				}
+			}
+			kvm->last_vcpu = dest_vcpu_id;
+			vcpu = kvm_get_vcpu_by_id(kvm, dest_vcpu_id);
+			vcpu->irq_num += 1;
+			mutex_unlock(&kvm->mh_lock);
+
 			if (irq.dest_id == org_dest_id && irq.vector == org_rx_vector) {
-				irq.dest_id = msi_dest_id;
+				irq.dest_id = dest_vcpu_id;
 				irq.vector = changed_rx_vector;
 			}
 			else if (irq.dest_id == org_dest_id && irq.vector == org_tx_vector) {
-				irq.dest_id = msi_dest_id;
+				irq.dest_id = dest_vcpu_id;
 				irq.vector = changed_tx_vector;
 			}
 		}

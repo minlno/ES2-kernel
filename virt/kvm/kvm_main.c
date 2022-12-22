@@ -411,6 +411,7 @@ static void kvm_vcpu_init(struct kvm_vcpu *vcpu, struct kvm *kvm, unsigned id)
 	INIT_LIST_HEAD(&vcpu->blocked_vcpu_list);
 	
 	//mhkim
+	vcpu->irq_num = 0;
 	INIT_LIST_HEAD(&vcpu->sched_stat_list);
 
 	kvm_vcpu_set_in_spin_loop(vcpu, false);
@@ -912,10 +913,12 @@ static struct kvm *kvm_create_vm(unsigned long type)
 	mutex_init(&kvm->lock);
 	mutex_init(&kvm->irq_lock);
 	mutex_init(&kvm->slots_lock);
-	mutex_init(&kvm->mh_lock);
 	INIT_LIST_HEAD(&kvm->devices);
+	//mhkim
+	mutex_init(&kvm->mh_lock);
 	INIT_LIST_HEAD(&kvm->online_vcpu_list);
 	INIT_LIST_HEAD(&kvm->offline_vcpu_list);
+	kvm->last_vcpu = NR_CPUS;
 
 	BUILD_BUG_ON(KVM_MEM_SLOTS_NUM > SHRT_MAX);
 
@@ -5041,10 +5044,14 @@ static void kvm_sched_in(struct preempt_notifier *pn, int cpu)
 	
 	//mhkim
 	struct kvm *kvm = vcpu->kvm;
-	mutex_lock(&kvm->mh_lock);
-	list_del(&vcpu->sched_stat_list);
-	list_add(&vcpu->sched_stat_list, &kvm->online_vcpu_list);
-	mutex_unlock(&kvm->mh_lock);
+	for (;;){
+		if (mutex_trylock(&kvm->mh_lock)) {
+			list_del(&vcpu->sched_stat_list);
+			list_add(&vcpu->sched_stat_list, &kvm->online_vcpu_list);
+			mutex_unlock(&kvm->mh_lock);
+			break;
+		}
+	}
 
 	WRITE_ONCE(vcpu->preempted, false);
 	WRITE_ONCE(vcpu->ready, false);
@@ -5061,10 +5068,14 @@ static void kvm_sched_out(struct preempt_notifier *pn,
 
 	//mhkim
 	struct kvm *kvm = vcpu->kvm;
-	mutex_lock(&kvm->mh_lock);
-	list_del(&vcpu->sched_stat_list);
-	list_add(&vcpu->sched_stat_list, &kvm->offline_vcpu_list);
-	mutex_unlock(&kvm->mh_lock);
+	for (;;){
+		if (mutex_trylock(&kvm->mh_lock)) {
+			list_del(&vcpu->sched_stat_list);
+			list_add(&vcpu->sched_stat_list, &kvm->offline_vcpu_list);
+			mutex_unlock(&kvm->mh_lock);
+			break;
+		}
+	}
 
 	if (current->state == TASK_RUNNING) {
 		WRITE_ONCE(vcpu->preempted, true);
