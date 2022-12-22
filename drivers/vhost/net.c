@@ -1344,7 +1344,6 @@ static int vhost_net_open(struct inode *inode, struct file *f)
 		       NULL);
 	//mhkim
 	dev->is_net = true;
-	dev->is_poll = true;
 
 	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, EPOLLOUT, dev);
 	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, EPOLLIN, dev);
